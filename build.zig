@@ -47,7 +47,7 @@ fn readFileAllocCompat(dir: std.Io.Dir, io: std.Io, allocator: std.mem.Allocator
 fn verifyVendoredSqliteHashes(b: *std.Build) !void {
     const max_vendor_file_size = 16 * 1024 * 1024;
     for (VENDORED_SQLITE_HASHES) |entry| {
-        const file_path = b.pathFromRoot(entry.path);
+        const file_path = try b.root.joinString(b.allocator, entry.path);
         defer b.allocator.free(file_path);
 
         const bytes = readFileAllocCompat(std.Io.Dir.cwd(), b.graph.io, b.allocator, file_path, max_vendor_file_size) catch |err| {
@@ -341,31 +341,6 @@ fn parseEnginesOption(raw: []const u8) !EngineSelection {
     return selection;
 }
 
-fn envExists(b: *std.Build, name: []const u8) bool {
-    return b.graph.environ_map.get(name) != null;
-}
-
-fn ensureAndroidBuildEnvironment(b: *std.Build) void {
-    if (envExists(b, "TERMUX_VERSION")) return;
-    if (b.libc_file != null) return;
-
-    const has_android_sdk_or_ndk =
-        envExists(b, "ANDROID_NDK_HOME") or
-        envExists(b, "ANDROID_NDK_ROOT") or
-        envExists(b, "ANDROID_HOME") or
-        envExists(b, "ANDROID_SDK_ROOT");
-
-    std.log.err("Android cross-builds need a Zig libc/sysroot file passed via --libc (or ZIG_LIBC).", .{});
-    if (has_android_sdk_or_ndk) {
-        std.log.err("An Android SDK/NDK environment was detected, but Zig still needs --libc pointing at the generated libc/sysroot file.", .{});
-    } else {
-        std.log.err("Install the Android NDK, generate a libc/sysroot file for the target, and pass it with --libc.", .{});
-    }
-    std.log.err("For native builds, run the build inside Termux without -Dtarget.", .{});
-    std.log.err("If you are seeing a build.zig.zon parse error mentioning '.nullclaw', your Zig version is not 0.16.0.", .{});
-    std.process.exit(1);
-}
-
 fn addEmbeddedWasm3(module: *std.Build.Module, b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) void {
     const wasm3_dep = b.dependency("wasm3", .{
         .target = target,
@@ -442,9 +417,9 @@ pub fn build(b: *std.Build) void {
     const enable_channel_web = channels.enable_channel_web;
     const enable_channel_max = channels.enable_channel_max;
 
-    if (target.result.abi == .android) {
-        ensureAndroidBuildEnvironment(b);
-    }
+    // Zig 0.17 no longer exposes `--libc` to build.zig. Android cross-builds
+    // are validated by the compiler, which reports a precise error when the
+    // libc/sysroot file is missing.
 
     const effective_enable_memory_sqlite = enable_sqlite and enable_memory_sqlite;
     const effective_enable_memory_lucid = enable_sqlite and enable_memory_lucid;
@@ -586,7 +561,7 @@ pub fn build(b: *std.Build) void {
     }
     exe.dead_strip_dylibs = true;
 
-    if (optimize != .Debug) {
+    if (optimize != .debug) {
         exe.root_module.strip = true;
         exe.root_module.unwind_tables = .none;
         exe.root_module.omit_frame_pointer = true;
@@ -596,7 +571,7 @@ pub fn build(b: *std.Build) void {
 
     // macOS host+target only: strip local symbols post-install.
     // Host `strip` cannot process ELF/PE during cross-builds.
-    if (optimize != .Debug and builtin.os.tag == .macos and target.result.os.tag == .macos) {
+    if (optimize != .debug and builtin.os.tag == .macos and target.result.os.tag == .macos) {
         const strip_cmd = b.addSystemCommand(&.{"strip"});
         strip_cmd.addArgs(&.{"-x"});
         strip_cmd.addFileArg(exe.getEmittedBin());
@@ -609,9 +584,7 @@ pub fn build(b: *std.Build) void {
     const run_cmd = b.addRunArtifact(exe);
     run_step.dependOn(&run_cmd.step);
     run_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
-    }
+    run_cmd.addPassthruArgs();
 
     // ---------- tests ----------
     const test_step = b.step("test", "Run all tests");

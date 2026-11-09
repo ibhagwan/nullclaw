@@ -1498,7 +1498,7 @@ test "workspace audit commit scan finds token in history diff" {
         if (!add.success) return error.SkipZigTest;
     }
     {
-        const commit = try process_util.run(std.testing.allocator, &.{ "git", "commit", "-m", "add history secret fixture" }, .{
+        const commit = try process_util.run(std.testing.allocator, &.{ "git", "-c", "commit.gpgsign=false", "commit", "-m", "add history secret fixture" }, .{
             .cwd = workspace,
             .max_output_bytes = 64 * 1024,
         });

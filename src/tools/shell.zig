@@ -1007,9 +1007,6 @@ test "validatePathEnvValue allows empty value" {
 
 test "shell path_env_vars passes validated vars to child" {
     if (comptime builtin.os.tag == .windows) return error.SkipZigTest;
-    const c = @cImport({
-        @cInclude("stdlib.h");
-    });
 
     var tmp_dir = std.testing.tmpDir(.{});
     defer tmp_dir.cleanup();
@@ -1020,12 +1017,12 @@ test "shell path_env_vars passes validated vars to child" {
     const libs_path = try std_compat.fs.path.join(std.testing.allocator, &.{ tmp_path, "mylibs" });
     defer std.testing.allocator.free(libs_path);
 
-    const key_z = try std.testing.allocator.dupeZ(u8, "TEST_LIB_PATH");
+    const key_z = try std.testing.allocator.dupeSentinel(u8, "TEST_LIB_PATH", 0);
     defer std.testing.allocator.free(key_z);
-    const value_z = try std.testing.allocator.dupeZ(u8, libs_path);
+    const value_z = try std.testing.allocator.dupeSentinel(u8, libs_path, 0);
     defer std.testing.allocator.free(value_z);
-    try std.testing.expectEqual(@as(c_int, 0), c.setenv(key_z.ptr, value_z.ptr, 1));
-    defer _ = c.unsetenv(key_z.ptr);
+    try std.testing.expectEqual(@as(c_int, 0), @import("../platform.zig").setenvZ(key_z.ptr, value_z.ptr, 1));
+    defer _ = @import("../platform.zig").unsetenvZ(key_z.ptr);
 
     var st = ShellTool{
         .workspace_dir = tmp_path,
@@ -1043,9 +1040,6 @@ test "shell path_env_vars passes validated vars to child" {
 
 test "shell sandboxed path_env_vars ignore allowed_paths outside workspace" {
     if (comptime builtin.os.tag == .windows) return error.SkipZigTest;
-    const c = @cImport({
-        @cInclude("stdlib.h");
-    });
 
     var tmp_dir = std.testing.tmpDir(.{});
     defer tmp_dir.cleanup();
@@ -1063,12 +1057,12 @@ test "shell sandboxed path_env_vars ignore allowed_paths outside workspace" {
     defer std.testing.allocator.free(libs_path);
     try std_compat.fs.cwd().makePath(libs_path);
 
-    const key_z = try std.testing.allocator.dupeZ(u8, "TEST_LIB_PATH");
+    const key_z = try std.testing.allocator.dupeSentinel(u8, "TEST_LIB_PATH", 0);
     defer std.testing.allocator.free(key_z);
-    const value_z = try std.testing.allocator.dupeZ(u8, libs_path);
+    const value_z = try std.testing.allocator.dupeSentinel(u8, libs_path, 0);
     defer std.testing.allocator.free(value_z);
-    try std.testing.expectEqual(@as(c_int, 0), c.setenv(key_z.ptr, value_z.ptr, 1));
-    defer _ = c.unsetenv(key_z.ptr);
+    try std.testing.expectEqual(@as(c_int, 0), @import("../platform.zig").setenvZ(key_z.ptr, value_z.ptr, 1));
+    defer _ = @import("../platform.zig").unsetenvZ(key_z.ptr);
 
     var prefix = PrefixSandbox{};
     var st = ShellTool{

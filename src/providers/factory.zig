@@ -1158,13 +1158,13 @@ test "detectProviderByApiKey short key" {
 }
 
 test "ProviderHolder case table covers every union variant" {
-    const fields = @typeInfo(ProviderHolder).@"union".fields;
-    try std.testing.expectEqual(fields.len, provider_holder_cases.len);
+    const union_info = @typeInfo(ProviderHolder).@"union";
+    try std.testing.expectEqual(union_info.field_names.len, provider_holder_cases.len);
 
-    inline for (fields) |field| {
+    inline for (union_info.field_names) |field_name| {
         var seen = false;
         for (provider_holder_cases) |c| {
-            if (std.mem.eql(u8, field.name, @tagName(c.expected_tag))) {
+            if (std.mem.eql(u8, field_name, @tagName(c.expected_tag))) {
                 try std.testing.expect(!seen);
                 seen = true;
             }

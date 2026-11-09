@@ -1,0 +1,15 @@
+.{
+    .name = .websocket,
+    .version = "0.1.0",
+    .dependencies = .{},
+    .fingerprint = 0x42ce80b97512f264,
+    .minimum_zig_version = "0.17.1",
+    .paths = .{
+        "readme.md",
+        "VENDORING.md",
+        "LICENSE",
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}

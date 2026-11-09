@@ -91,26 +91,32 @@ pub const Stream = struct {
     pub fn read(self: Stream, buffer: []u8) ReadError!usize {
         if (buffer.len == 0) return 0;
 
-        const io = shared.io();
-        var data = [1][]u8{buffer};
-        return io.vtable.netRead(io.userdata, self.handle, &data) catch |err| switch (err) {
-            error.Canceled => return error.Canceled,
-            else => return err,
+        if (comptime builtin.os.tag == .windows) {
+            var data = [1][]u8{buffer};
+            const result = try shared.io().operate(.{ .net_read = .{
+                .socket_handle = self.handle,
+                .data = &data,
+            } });
+            return (try result.net_read).data_len;
+        }
+        return posix.read(self.handle, buffer) catch |err| switch (err) {
+            error.InputOutput,
+            error.IsDir,
+            error.LockViolation,
+            error.NotOpenForReading,
+            => error.Unexpected,
+            else => |e| e,
         };
     }
 
     pub fn write(self: Stream, bytes: []const u8) WriteError!usize {
         if (bytes.len == 0) return 0;
 
-        const io = shared.io();
-        var total: usize = 0;
-        while (total < bytes.len) {
-            var data = [1][]const u8{bytes[total..]};
-            const n = try io.vtable.netWrite(io.userdata, self.handle, "", &data, 1);
-            if (n == 0) return error.Unexpected;
-            total += n;
-        }
-        return total;
+        var stream_writer = self.toInner().writer(shared.io(), &[_]u8{});
+        stream_writer.interface.writeAll(bytes) catch |err| switch (err) {
+            error.WriteFailed => return stream_writer.err orelse error.Unexpected,
+        };
+        return bytes.len;
     }
 
     pub fn writeAll(self: Stream, bytes: []const u8) WriteError!void {
@@ -534,7 +540,7 @@ pub fn getAddressList(gpa: Allocator, name: []const u8, port: u16) GetAddressLis
     const name_c = name_buffer[0..name.len :0];
 
     var port_buffer: [8]u8 = undefined;
-    const port_c = std.fmt.bufPrintZ(&port_buffer, "{d}", .{port}) catch unreachable;
+    const port_c = std.fmt.bufPrintSentinel(&port_buffer, "{d}", .{port}, 0) catch unreachable;
 
     const hints: posix.addrinfo = .{
         .flags = .{ .CANONNAME = false, .NUMERICSERV = true },
@@ -548,7 +554,7 @@ pub fn getAddressList(gpa: Allocator, name: []const u8, port: u16) GetAddressLis
     };
     var res: ?*posix.addrinfo = null;
     switch (posix.system.getaddrinfo(name_c.ptr, port_c.ptr, &hints, &res)) {
-        @as(posix.system.EAI, @enumFromInt(0)) => {},
+        @as(posix.system.EAI, @fromBackingInt(@intCast(0))) => {},
         .ADDRFAMILY, .FAMILY => return error.AddressFamilyNotSupported,
         .AGAIN => return error.TemporaryNameServerFailure,
         .FAIL => return error.NameServerFailure,

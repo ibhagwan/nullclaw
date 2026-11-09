@@ -3458,17 +3458,14 @@ fn getDefaultConfigPath(allocator: std.mem.Allocator) ![]const u8 {
 
 test "getDefaultWorkspace prefers NULLCLAW_WORKSPACE override" {
     if (comptime builtin.os.tag == .windows) return error.SkipZigTest;
-    const c = @cImport({
-        @cInclude("stdlib.h");
-    });
 
-    const key_z = try std.testing.allocator.dupeZ(u8, "NULLCLAW_WORKSPACE");
+    const key_z = try std.testing.allocator.dupeSentinel(u8, "NULLCLAW_WORKSPACE", 0);
     defer std.testing.allocator.free(key_z);
-    const value_z = try std.testing.allocator.dupeZ(u8, "/tmp/nullclaw-test-workspace");
+    const value_z = try std.testing.allocator.dupeSentinel(u8, "/tmp/nullclaw-test-workspace", 0);
     defer std.testing.allocator.free(value_z);
 
-    try std.testing.expectEqual(@as(c_int, 0), c.setenv(key_z.ptr, value_z.ptr, 1));
-    defer _ = c.unsetenv(key_z.ptr);
+    try std.testing.expectEqual(@as(c_int, 0), @import("platform.zig").setenvZ(key_z.ptr, value_z.ptr, 1));
+    defer _ = @import("platform.zig").unsetenvZ(key_z.ptr);
 
     const workspace = try getDefaultWorkspace(std.testing.allocator);
     defer std.testing.allocator.free(workspace);
@@ -3478,23 +3475,20 @@ test "getDefaultWorkspace prefers NULLCLAW_WORKSPACE override" {
 
 test "initFreshConfig honors NULLCLAW_HOME and NULLCLAW_WORKSPACE overrides" {
     if (comptime builtin.os.tag == .windows) return error.SkipZigTest;
-    const c = @cImport({
-        @cInclude("stdlib.h");
-    });
 
-    const home_key_z = try std.testing.allocator.dupeZ(u8, "NULLCLAW_HOME");
+    const home_key_z = try std.testing.allocator.dupeSentinel(u8, "NULLCLAW_HOME", 0);
     defer std.testing.allocator.free(home_key_z);
-    const home_value_z = try std.testing.allocator.dupeZ(u8, "/tmp/nullclaw-home");
+    const home_value_z = try std.testing.allocator.dupeSentinel(u8, "/tmp/nullclaw-home", 0);
     defer std.testing.allocator.free(home_value_z);
-    try std.testing.expectEqual(@as(c_int, 0), c.setenv(home_key_z.ptr, home_value_z.ptr, 1));
-    defer _ = c.unsetenv(home_key_z.ptr);
+    try std.testing.expectEqual(@as(c_int, 0), @import("platform.zig").setenvZ(home_key_z.ptr, home_value_z.ptr, 1));
+    defer _ = @import("platform.zig").unsetenvZ(home_key_z.ptr);
 
-    const workspace_key_z = try std.testing.allocator.dupeZ(u8, "NULLCLAW_WORKSPACE");
+    const workspace_key_z = try std.testing.allocator.dupeSentinel(u8, "NULLCLAW_WORKSPACE", 0);
     defer std.testing.allocator.free(workspace_key_z);
-    const workspace_value_z = try std.testing.allocator.dupeZ(u8, "/tmp/nullclaw-home/workspace-custom");
+    const workspace_value_z = try std.testing.allocator.dupeSentinel(u8, "/tmp/nullclaw-home/workspace-custom", 0);
     defer std.testing.allocator.free(workspace_value_z);
-    try std.testing.expectEqual(@as(c_int, 0), c.setenv(workspace_key_z.ptr, workspace_value_z.ptr, 1));
-    defer _ = c.unsetenv(workspace_key_z.ptr);
+    try std.testing.expectEqual(@as(c_int, 0), @import("platform.zig").setenvZ(workspace_key_z.ptr, workspace_value_z.ptr, 1));
+    defer _ = @import("platform.zig").unsetenvZ(workspace_key_z.ptr);
 
     var cfg = try initFreshConfig(std.testing.allocator);
     defer cfg.deinit();
@@ -5348,11 +5342,8 @@ test "CACHE_TTL_SECS is 12 hours" {
 
 test "fetchModels returns models for anthropic (no network)" {
     if (comptime builtin.os.tag == .windows) return error.SkipZigTest;
-    const c = @cImport({
-        @cInclude("stdlib.h");
-    });
 
-    const env_name = try std.testing.allocator.dupeZ(u8, "NULLCLAW_HOME");
+    const env_name = try std.testing.allocator.dupeSentinel(u8, "NULLCLAW_HOME", 0);
     defer std.testing.allocator.free(env_name);
     const previous_home = std_compat.process.getEnvVarOwned(std.testing.allocator, "NULLCLAW_HOME") catch |err| switch (err) {
         error.EnvironmentVariableNotFound => null,
@@ -5361,11 +5352,11 @@ test "fetchModels returns models for anthropic (no network)" {
     defer {
         if (previous_home) |value| {
             defer std.testing.allocator.free(value);
-            const value_z = std.testing.allocator.dupeZ(u8, value) catch unreachable;
+            const value_z = std.testing.allocator.dupeSentinel(u8, value, 0) catch unreachable;
             defer std.testing.allocator.free(value_z);
-            _ = c.setenv(env_name.ptr, value_z.ptr, 1);
+            _ = @import("platform.zig").setenvZ(env_name.ptr, value_z.ptr, 1);
         } else {
-            _ = c.unsetenv(env_name.ptr);
+            _ = @import("platform.zig").unsetenvZ(env_name.ptr);
         }
     }
 
@@ -5375,9 +5366,9 @@ test "fetchModels returns models for anthropic (no network)" {
     defer std.testing.allocator.free(base);
     const test_home = try std_compat.fs.path.join(std.testing.allocator, &.{ base, "nullclaw-home" });
     defer std.testing.allocator.free(test_home);
-    const test_home_z = try std.testing.allocator.dupeZ(u8, test_home);
+    const test_home_z = try std.testing.allocator.dupeSentinel(u8, test_home, 0);
     defer std.testing.allocator.free(test_home_z);
-    try std.testing.expectEqual(@as(c_int, 0), c.setenv(env_name.ptr, test_home_z.ptr, 1));
+    try std.testing.expectEqual(@as(c_int, 0), @import("platform.zig").setenvZ(env_name.ptr, test_home_z.ptr, 1));
 
     const models = try fetchModels(std.testing.allocator, "anthropic", null, null);
     // Anthropic uses hardcoded fallback (allocated copies via fetchModelsFromApi)

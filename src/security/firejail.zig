@@ -148,29 +148,26 @@ test "firejail sandbox availability requires executable in PATH" {
     }
 
     const platform = @import("../platform.zig");
-    const c = @cImport({
-        @cInclude("stdlib.h");
-    });
 
-    const key_z = try std.testing.allocator.dupeZ(u8, "PATH");
+    const key_z = try std.testing.allocator.dupeSentinel(u8, "PATH", 0);
     defer std.testing.allocator.free(key_z);
 
     const old_path = platform.getEnvOrNull(std.testing.allocator, "PATH");
     defer if (old_path) |path| std.testing.allocator.free(path);
 
-    const old_path_z = if (old_path) |path| try std.testing.allocator.dupeZ(u8, path) else null;
+    const old_path_z = if (old_path) |path| try std.testing.allocator.dupeSentinel(u8, path, 0) else null;
     defer if (old_path_z) |path| std.testing.allocator.free(path);
 
     defer {
         if (old_path_z) |path| {
-            _ = c.setenv(key_z.ptr, path.ptr, 1);
+            _ = @import("../platform.zig").setenvZ(key_z.ptr, path.ptr, 1);
         } else {
-            _ = c.unsetenv(key_z.ptr);
+            _ = @import("../platform.zig").unsetenvZ(key_z.ptr);
         }
     }
 
-    const empty_z = try std.testing.allocator.dupeZ(u8, "");
+    const empty_z = try std.testing.allocator.dupeSentinel(u8, "", 0);
     defer std.testing.allocator.free(empty_z);
-    try std.testing.expectEqual(@as(c_int, 0), c.setenv(key_z.ptr, empty_z.ptr, 1));
+    try std.testing.expectEqual(@as(c_int, 0), @import("../platform.zig").setenvZ(key_z.ptr, empty_z.ptr, 1));
     try std.testing.expect(!sb.isAvailable());
 }

@@ -57,7 +57,7 @@ pub fn argsAlloc(allocator: Allocator) ![]const [:0]const u8 {
     }
 
     while (iter.next()) |arg| {
-        try list.append(allocator, try allocator.dupeZ(u8, arg));
+        try list.append(allocator, try allocator.dupeSentinel(u8, arg, 0));
     }
 
     return try list.toOwnedSlice(allocator);

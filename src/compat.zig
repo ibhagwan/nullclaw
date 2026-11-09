@@ -5,6 +5,42 @@ const shared = @import("compat/shared.zig");
 const Io = std.Io;
 const Allocator = std.mem.Allocator;
 
+/// Compatibility view over `@typeInfo(T).@"struct".fields`, matching the
+/// pre-0.17 `std.meta.fields` shape for code that iterates fields.
+pub const Field = struct {
+    name: []const u8,
+    type: type,
+};
+
+pub fn fields(comptime T: type) [@typeInfo(T).@"struct".field_names.len]Field {
+    const info = @typeInfo(T).@"struct";
+    var out: [info.field_names.len]Field = undefined;
+    inline for (info.field_names, info.field_types, 0..) |name, FieldType, i| {
+        out[i] = .{ .name = name, .type = FieldType };
+    }
+    return out;
+}
+
+/// Repeat a comptime string pattern `n` times. Replaces the `**`
+/// array-repetition operator removed in Zig 0.17.
+pub fn repeat(comptime pattern: []const u8, comptime n: usize) *const [pattern.len * n]u8 {
+    const Storage = struct {
+        const data: [pattern.len * n]u8 = blk: {
+            @setEvalBranchQuota(n + 1000);
+            var out: [pattern.len * n]u8 = undefined;
+            for (0..n) |i| @memcpy(out[i * pattern.len ..][0..pattern.len], pattern);
+            break :blk out;
+        };
+    };
+    return &Storage.data;
+}
+
+/// Repeat a comptime scalar into an array. Replaces the `**`
+/// array-repetition operator removed in Zig 0.17.
+pub fn repeatArray(comptime T: type, comptime value: T, comptime n: usize) [n]T {
+    return @splat(value);
+}
+
 pub fn initProcess(init: std.process.Init) void {
     shared.initProcess(init);
 }
@@ -82,7 +118,6 @@ pub const process = struct {
             env_map: ?*const EnvMap = null,
             expand_arg0: std.process.ArgExpansion = .no_expand,
             create_no_window: bool = true,
-            disable_aslr: bool = false,
         };
 
         pub fn init(argv: []const []const u8, allocator: Allocator) Child {
@@ -181,7 +216,6 @@ pub const process = struct {
                 .environ_map = options.env_map,
                 .expand_arg0 = options.expand_arg0,
                 .create_no_window = options.create_no_window,
-                .disable_aslr = options.disable_aslr,
             });
         }
     };

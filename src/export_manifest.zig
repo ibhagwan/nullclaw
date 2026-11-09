@@ -9,7 +9,7 @@ const onboard = @import("onboard.zig");
 const channel_catalog = @import("channel_catalog.zig");
 const version = @import("version.zig");
 
-const BUILD_FROM_SOURCE_ZIG_VERSION = "0.16.0";
+const BUILD_FROM_SOURCE_ZIG_VERSION = "0.17.1";
 
 pub fn run() !void {
     var buf: [65536]u8 = undefined;
@@ -263,7 +263,7 @@ pub fn run() !void {
 }
 
 test "export_manifest produces valid structure" {
-    try std.testing.expectEqualStrings("0.16.0", BUILD_FROM_SOURCE_ZIG_VERSION);
+    try std.testing.expectEqualStrings("0.17.1", BUILD_FROM_SOURCE_ZIG_VERSION);
 
     // Verify the data sources are accessible and have expected counts
     try std.testing.expect(onboard.known_providers.len >= 29);

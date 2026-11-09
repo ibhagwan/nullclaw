@@ -121,39 +121,36 @@ test "canResolveExecutable rejects directory on PATH" {
     defer std.testing.allocator.free(bin_abs);
 
     const platform = @import("../platform.zig");
-    const c = @cImport({
-        @cInclude("stdlib.h");
-    });
 
-    const key_z = try std.testing.allocator.dupeZ(u8, "PATH");
+    const key_z = try std.testing.allocator.dupeSentinel(u8, "PATH", 0);
     defer std.testing.allocator.free(key_z);
 
     const old_path = platform.getEnvOrNull(std.testing.allocator, "PATH");
     defer if (old_path) |path| std.testing.allocator.free(path);
 
-    const old_path_z = if (old_path) |path| try std.testing.allocator.dupeZ(u8, path) else null;
+    const old_path_z = if (old_path) |path| try std.testing.allocator.dupeSentinel(u8, path, 0) else null;
     defer if (old_path_z) |path| std.testing.allocator.free(path);
 
     defer {
         if (old_path_z) |path| {
             _ = if (comptime builtin.os.tag == .windows)
-                c._putenv_s(key_z.ptr, path.ptr)
+                @import("../platform.zig").setenvZ(key_z.ptr, path.ptr)
             else
-                c.setenv(key_z.ptr, path.ptr, 1);
+                @import("../platform.zig").setenvZ(key_z.ptr, path.ptr, 1);
         } else {
             _ = if (comptime builtin.os.tag == .windows)
-                c._putenv_s(key_z.ptr, "")
+                @import("../platform.zig").setenvZ(key_z.ptr, "")
             else
-                c.unsetenv(key_z.ptr);
+                @import("../platform.zig").unsetenvZ(key_z.ptr);
         }
     }
 
-    const bin_z = try std.testing.allocator.dupeZ(u8, bin_abs);
+    const bin_z = try std.testing.allocator.dupeSentinel(u8, bin_abs, 0);
     defer std.testing.allocator.free(bin_z);
     const set_rc = if (comptime builtin.os.tag == .windows)
-        c._putenv_s(key_z.ptr, bin_z.ptr)
+        @import("../platform.zig").setenvZ(key_z.ptr, bin_z.ptr)
     else
-        c.setenv(key_z.ptr, bin_z.ptr, 1);
+        @import("../platform.zig").setenvZ(key_z.ptr, bin_z.ptr, 1);
     try std.testing.expectEqual(@as(c_int, 0), set_rc);
 
     // Regression: executable resolution must reject directories with execute access.

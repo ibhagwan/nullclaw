@@ -135,7 +135,7 @@ zig build -Doptimize=ReleaseSmall
 
 Security-sensitive changes should also include targeted tests for the modified modules before the full suite is run.
 
-Environment note from 2026-05-10: the current system `zig` was observed as `0.14.1`, while this repository is pinned to `0.16.0`. Full validation must be performed with Zig `0.16.0`.
+Environment note from 2026-05-10: the current system `zig` was observed as `0.14.1`, while this repository is pinned to `0.17.1`. Full validation must be performed with Zig `0.17.1`.
 
 ## Handoff Checklist
 

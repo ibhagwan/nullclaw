@@ -145,9 +145,9 @@ test "SandboxBackend enum exhaustiveness" {
         "bubblewrap",
         "docker",
     };
-    const enum_fields = @typeInfo(SandboxBackend).@"enum".fields;
-    try testing.expectEqual(expected_names.len, enum_fields.len);
+    const enum_info = @typeInfo(SandboxBackend).@"enum";
+    try testing.expectEqual(expected_names.len, enum_info.field_names.len);
     inline for (expected_names, 0..) |expected_name, i| {
-        try testing.expectEqualStrings(expected_name, enum_fields[i].name);
+        try testing.expectEqualStrings(expected_name, enum_info.field_names[i]);
     }
 }
